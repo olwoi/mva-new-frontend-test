@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Recorder</title>
+</head>
+<body>
+    <h1>Audio Recorder</h1>
+    <button id="recordButton">Start Recording</button>
+    <button id="stopButton" disabled>Stop Recording</button>
+    <audio id="audioPlayback" controls></audio>
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioBlob;
+        let audioUrl;
+
+        document.getElementById("recordButton").addEventListener("click", async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.start();
+            document.getElementById("recordButton").disabled = true;
+            document.getElementById("stopButton").disabled = false;
+
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                audioUrl = URL.createObjectURL(audioBlob);
+                document.getElementById("audioPlayback").src = audioUrl;
+                audioChunks = [];
+                document.getElementById("recordButton").disabled = false;
+                document.getElementById("stopButton").disabled = true;
+                
+                // Send the audio to the backend
+                const formData = new FormData();
+                formData.append('file', audioBlob, 'recording.wav');
+                
+                const response = await fetch('http://127.0.0.1:8006/upload-audio', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                console.log('File uploaded:', data);
+            };
+        });
+
+        document.getElementById("stopButton").addEventListener("click", () => {
+            mediaRecorder.stop();
+        });
+    </script>
+</body>
+</html>
